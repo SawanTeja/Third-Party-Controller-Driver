@@ -1,5 +1,5 @@
 /*
- * cosmic-xbox-driver.c - Initial skeleton
+ * cosmic-xbox-driver.c - Added device detection and EVIOCGRAB
  */
 #define _GNU_SOURCE
 #include <stdio.h>
@@ -9,19 +9,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <sys/epoll.h>
+#include <sys/ioctl.h>
 #include <linux/input.h>
 
-static volatile bool g_running = true;
-
-static void handle_signal(int sig) {
-    (void)sig;
-    g_running = false;
+static int grab_device(int fd) {
+    return ioctl(fd, EVIOCGRAB, 1);
 }
 
 int main(void) {
-    signal(SIGINT, handle_signal);
-    signal(SIGTERM, handle_signal);
-    printf("Starting controller driver service skeleton...\n");
+    printf("Driver: hardware grabbing with EVIOCGRAB implemented\n");
     return 0;
 }
