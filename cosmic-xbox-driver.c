@@ -1,22 +1,16 @@
 /*
- * cosmic-xbox-driver.c - Button mappings
+ * cosmic-xbox-driver.c - Stick scaling
  */
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <linux/input.h>
-#include <linux/uinput.h>
+#include <stdint.h>
 
-static inline void emit_event(int uinput_fd, uint16_t type, uint16_t code, int32_t val) {
-    struct input_event ev;
-    memset(&ev, 0, sizeof(ev));
-    ev.type = type;
-    ev.code = code;
-    ev.value = val;
-    write(uinput_fd, &ev, sizeof(ev));
+static inline int32_t scale_axis_255(int32_t val) {
+    if (val >= 124 && val <= 132) return 0;
+    int32_t centered = val - 128;
+    int32_t scaled = (centered * 65535) / 255;
+    if (scaled < -32768) scaled = -32768;
+    if (scaled > 32767) scaled = 32767;
+    return scaled;
 }
