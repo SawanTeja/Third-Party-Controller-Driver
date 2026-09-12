@@ -1,16 +1,10 @@
 /*
- * cosmic-xbox-driver.c - Stick scaling
+ * cosmic-xbox-driver.c - True analog triggers support
+ * Maps ABS_BRAKE -> ABS_Z (LT) and ABS_GAS -> ABS_RZ (RT)
  */
 #define _GNU_SOURCE
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <linux/input.h>
 
-static inline int32_t scale_axis_255(int32_t val) {
-    if (val >= 124 && val <= 132) return 0;
-    int32_t centered = val - 128;
-    int32_t scaled = (centered * 65535) / 255;
-    if (scaled < -32768) scaled = -32768;
-    if (scaled > 32767) scaled = 32767;
-    return scaled;
-}
+// Full 8-bit analog resolution 0..255 preserved
