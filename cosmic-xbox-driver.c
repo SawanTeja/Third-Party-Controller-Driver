@@ -1,11 +1,6 @@
 /*
- * cosmic-xbox-driver.c - Dynamic hidraw node discovery via sysfs
+ * cosmic-xbox-driver.c - UI_BEGIN_FF_UPLOAD handling
  */
 #define _GNU_SOURCE
-#include <stdio.h>
-#include <dirent.h>
-
-static int find_hidraw_fd(const char *event_path) {
-    // Dynamic sysfs traversal
-    return -1;
-}
+#include <linux/uinput.h>
+// Upload and erase handling
