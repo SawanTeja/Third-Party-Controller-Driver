@@ -1,6 +1,6 @@
 /*
- * cosmic-xbox-driver.c - UI_BEGIN_FF_UPLOAD handling
+ * cosmic-xbox-driver.c - Dual rumble engine
  */
 #define _GNU_SOURCE
-#include <linux/uinput.h>
-// Upload and erase handling
+#include <stdint.h>
+// Writes ShanWan rumble packet: 0x02, 0x08, weak, strong, 0xff, 0, 0, 0
