@@ -1,6 +1,5 @@
 /*
- * cosmic-xbox-driver.c - Dual rumble engine
+ * cosmic-xbox-driver.c - inotify /dev/input hotplug monitoring
  */
 #define _GNU_SOURCE
-#include <stdint.h>
-// Writes ShanWan rumble packet: 0x02, 0x08, weak, strong, 0xff, 0, 0, 0
+#include <sys/inotify.h>
