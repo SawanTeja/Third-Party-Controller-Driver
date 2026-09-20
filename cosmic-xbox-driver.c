@@ -1,5 +1,5 @@
 /*
- * cosmic-xbox-driver.c - inotify /dev/input hotplug monitoring
+ * cosmic-xbox-driver.c - Epoll event loop with zero busy waiting
  */
 #define _GNU_SOURCE
-#include <sys/inotify.h>
+#include <sys/epoll.h>
