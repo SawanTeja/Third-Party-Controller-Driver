@@ -1,0 +1,21 @@
+[Unit]
+Description=Universal Xbox Controller Driver for Cosmic Byte & ShanWan Gamepads
+Documentation=https://github.com/SawanTeja/Third-Party-Controller-Fix-For-Linux
+After=systemd-udevd.service
+Wants=systemd-udevd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/cosmic-xbox-driver
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+# Security sandbox
+ProtectHome=true
+ProtectSystem=full
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
