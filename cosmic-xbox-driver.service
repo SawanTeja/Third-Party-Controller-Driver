@@ -1,6 +1,6 @@
 [Unit]
 Description=Universal Xbox Controller Driver for Cosmic Byte & ShanWan Gamepads
-Documentation=https://github.com/SawanTeja/Third-Party-Controller-Fix-For-Linux
+Documentation=https://github.com/SawanTeja/Third-Party-Controller-Driver
 After=systemd-udevd.service
 Wants=systemd-udevd.service
 

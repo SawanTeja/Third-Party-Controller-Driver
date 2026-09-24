@@ -35,7 +35,7 @@ By reverse-engineering the native ShanWan USB communication (`20bc:5001`):
 Clone this repository and run the automated installer:
 
 ```bash
-git clone https://github.com/SawanTeja/Third-Party-Controller-Fix-For-Linux.git ControllerDriver
+git clone https://github.com/SawanTeja/Third-Party-Controller-Driver.git ControllerDriver
 cd ControllerDriver
 sudo ./install.sh
 ```

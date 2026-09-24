@@ -1,0 +1,13 @@
+# Binaries and object files
+cosmic-xbox-driver
+*.o
+*.so
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Temp files
+*.swp
+*~
+.DS_Store
