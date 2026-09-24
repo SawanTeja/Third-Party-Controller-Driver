@@ -3,6 +3,11 @@
 A lightweight Linux driver for **Cosmic Byte Blitz**, **ShanWan**, and generic third-party gamepads. It connects the controller as an authentic **Xbox 360 controller** with working vibration and full analog trigger sensitivity.
 
 ---
+## Tested 
+
+<img width="1189" height="839" alt="image" src="https://github.com/user-attachments/assets/6a8e8d19-669e-48d5-9449-725cf6f2c25c" />
+
+---
 
 ## Features
 
