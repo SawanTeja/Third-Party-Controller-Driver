@@ -41,8 +41,9 @@
 #define MAX_EFFECTS 16
 #define MAX_EVENTS 64
 
-#define MODE_SWITCH_LAYOUT  1
-#define MODE_SHANWAN_LAYOUT 2
+#define MODE_SWITCH_LAYOUT        1
+#define MODE_SHANWAN_LAYOUT       2
+#define MODE_USB_FALLBACK_LAYOUT  3
 
 struct supported_id {
     uint16_t vendor;
@@ -52,13 +53,13 @@ struct supported_id {
 };
 
 static const struct supported_id SUPPORTED_DEVICES[] = {
-    { 0x20bc, 0x5001, "Cosmic Byte Blitz / ShanWan Gamepad (Native Mode)", MODE_SHANWAN_LAYOUT },
-    { 0x2563, 0x0575, "ShanWan USB Wireless Gamepad",                      MODE_SHANWAN_LAYOUT },
-    { 0x2563, 0x0523, "ShanWan Gamepad",                                   MODE_SHANWAN_LAYOUT },
-    { 0x2563, 0x0526, "Redragon / ShanWan Gamepad (2.4Ghz Wireless)",      MODE_SHANWAN_LAYOUT },
-    { 0x2563, 0x0599, "Redragon / ShanWan Gamepad (USB Wired Mode)",       MODE_SHANWAN_LAYOUT },
-    { 0x05ac, 0x033e, "Cosmic Byte Blitz / Gamepad (USB Wired Mode)",      MODE_SHANWAN_LAYOUT },
-    { 0x057e, 0x2009, "Cosmic Byte Blitz (Switch Pro Fallback Mode)",       MODE_SWITCH_LAYOUT },
+    { 0x20bc, 0x5001, "Cosmic Byte Blitz / ShanWan Gamepad (Wireless Dongle)", MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0575, "ShanWan USB Wireless Gamepad",                          MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0523, "ShanWan Gamepad",                                       MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0526, "Redragon / ShanWan Gamepad (2.4Ghz Wireless Dongle)",   MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0599, "Redragon / ShanWan Gamepad (USB Wired Mode)",           MODE_USB_FALLBACK_LAYOUT },
+    { 0x05ac, 0x033e, "Cosmic Byte Blitz / Gamepad (USB Wired Mode)",          MODE_USB_FALLBACK_LAYOUT },
+    { 0x057e, 0x2009, "Cosmic Byte Blitz (Switch Pro Fallback Mode)",           MODE_SWITCH_LAYOUT },
     { 0, 0, NULL, 0 }
 };
 
@@ -166,8 +167,6 @@ static int create_uinput_xbox360(void) {
     ioctl(fd, UI_SET_KEYBIT, BTN_Y);
     ioctl(fd, UI_SET_KEYBIT, BTN_TL);
     ioctl(fd, UI_SET_KEYBIT, BTN_TR);
-    ioctl(fd, UI_SET_KEYBIT, BTN_TL2);
-    ioctl(fd, UI_SET_KEYBIT, BTN_TR2);
     ioctl(fd, UI_SET_KEYBIT, BTN_SELECT);
     ioctl(fd, UI_SET_KEYBIT, BTN_START);
     ioctl(fd, UI_SET_KEYBIT, BTN_MODE);
@@ -440,19 +439,76 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
                         emit_event(uinput_fd, EV_KEY, BTN_Y, val);
                         break;
                     case BTN_TL2:
-                        emit_event(uinput_fd, EV_KEY, BTN_TL2, val);
                         emit_event(uinput_fd, EV_ABS, ABS_Z, val ? 255 : 0);
                         break;
                     case BTN_TR2:
-                        emit_event(uinput_fd, EV_KEY, BTN_TR2, val);
                         emit_event(uinput_fd, EV_ABS, ABS_RZ, val ? 255 : 0);
                         break;
                     default:
                         emit_event(uinput_fd, EV_KEY, code, val);
                         break;
                 }
+            } else if (mode == MODE_USB_FALLBACK_LAYOUT) {
+                /*
+                 * Wired USB Fallback Mode (05ac:033e, 2563:0599):
+                 * Precise Calibrated Hardware Scancode Mapping:
+                 *   - 0x130 (A)        -> BTN_A
+                 *   - 0x131 (B)        -> BTN_B
+                 *   - 0x133 (X)        -> BTN_X
+                 *   - 0x134 (Y)        -> BTN_Y
+                 *   - 0x136 (LB)       -> BTN_TL
+                 *   - 0x137 (RB)       -> BTN_TR
+                 *   - 0x13a (START)    -> BTN_START (Fixes swapped start/select)
+                 *   - 0x13b (SELECT)   -> BTN_SELECT
+                 *   - 0x13c (HOME)     -> BTN_MODE
+                 *   - 0x13d (L3 stick) -> BTN_THUMBL (Fixes thumbstick click)
+                 *   - 0x13e (R3 stick) -> BTN_THUMBR (Fixes thumbstick click)
+                 *   - 0x138/0x139      -> Ignored (triggers handled via analog ABS_Z / ABS_RZ)
+                 */
+                switch (code) {
+                    case 0x130:
+                        emit_event(uinput_fd, EV_KEY, BTN_A, val);
+                        break;
+                    case 0x131:
+                        emit_event(uinput_fd, EV_KEY, BTN_B, val);
+                        break;
+                    case 0x133:
+                        emit_event(uinput_fd, EV_KEY, BTN_X, val);
+                        break;
+                    case 0x134:
+                        emit_event(uinput_fd, EV_KEY, BTN_Y, val);
+                        break;
+                    case 0x136:
+                        emit_event(uinput_fd, EV_KEY, BTN_TL, val);
+                        break;
+                    case 0x137:
+                        emit_event(uinput_fd, EV_KEY, BTN_TR, val);
+                        break;
+                    case 0x13a:
+                        emit_event(uinput_fd, EV_KEY, BTN_START, val);
+                        break;
+                    case 0x13b:
+                        emit_event(uinput_fd, EV_KEY, BTN_SELECT, val);
+                        break;
+                    case 0x13c:
+                        emit_event(uinput_fd, EV_KEY, BTN_MODE, val);
+                        break;
+                    case 0x13d:
+                        emit_event(uinput_fd, EV_KEY, BTN_THUMBL, val);
+                        break;
+                    case 0x13e:
+                        emit_event(uinput_fd, EV_KEY, BTN_THUMBR, val);
+                        break;
+                    case 0x138:
+                    case 0x139:
+                        /* Triggers handled via analog ABS_Z / ABS_RZ */
+                        break;
+                    default:
+                        emit_event(uinput_fd, EV_KEY, code, val);
+                        break;
+                }
             } else {
-                /* Native ShanWan Mode: Buttons are 1:1 */
+                /* Native ShanWan Wireless Dongle Mode: Buttons are 1:1 */
                 switch (code) {
                     case BTN_A:
                     case BTN_B:
@@ -468,10 +524,8 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
                         emit_event(uinput_fd, EV_KEY, code, val);
                         break;
                     case BTN_TL2:
-                        emit_event(uinput_fd, EV_KEY, BTN_TL2, val);
-                        break;
                     case BTN_TR2:
-                        emit_event(uinput_fd, EV_KEY, BTN_TR2, val);
+                        /* Triggers handled via analog ABS_Z / ABS_RZ */
                         break;
                     default:
                         emit_event(uinput_fd, EV_KEY, code, val);
@@ -482,7 +536,7 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
             uint16_t code = ev->code;
             int32_t val = ev->value;
 
-            if (mode == MODE_SHANWAN_LAYOUT) {
+            if (mode == MODE_SHANWAN_LAYOUT || mode == MODE_USB_FALLBACK_LAYOUT) {
                 /*
                  * Native ShanWan Layout (20bc:5001):
                  *   - ABS_X (0..255) -> Left Stick X
@@ -610,7 +664,10 @@ static bool try_connect_device(const char *devpath) {
     printf("  Device Node: %s\n", devpath);
     printf("  Device Name: %s\n", name);
     printf("  VID:PID    : %04x:%04x\n", id.vendor, id.product);
-    printf("  Mode       : %s\n", mode == MODE_SHANWAN_LAYOUT ? "Native ShanWan (Full Analog Triggers)" : "Switch Mode");
+    const char *mode_str = "Switch Mode";
+    if (mode == MODE_SHANWAN_LAYOUT) mode_str = "Native ShanWan Wireless (Full Analog Triggers)";
+    else if (mode == MODE_USB_FALLBACK_LAYOUT) mode_str = "Wired USB Mode (Calibrated Full Xbox 360 Layout)";
+    printf("  Mode       : %s\n", mode_str);
     printf("======================================================\n");
 
     /* Grab exclusive access to hide raw device from games/Steam */
