@@ -7,6 +7,13 @@ A lightweight Linux driver for **Cosmic Byte Blitz**, **ShanWan**, and generic t
 
 <img width="1189" height="839" alt="image" src="https://github.com/user-attachments/assets/6a8e8d19-669e-48d5-9449-725cf6f2c25c" />
 
+
+
+https://github.com/user-attachments/assets/084ffcd3-41cf-4784-877a-147775d4d87e
+
+The controller i have tested in the video is Cosmic Byte Blitz on Ubuntu
+
+
 ---
 
 ## Features
