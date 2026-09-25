@@ -1,7 +1,43 @@
 #!/usr/bin/env python3
 import sys, os, struct, time
 
-EVENT_PATH = "/dev/input/event18"
+def find_input_device():
+    if len(sys.argv) > 1:
+        return sys.argv[1]
+    
+    # 1. Prefer virtual Xbox 360 controller
+    if os.path.exists("/sys/class/input"):
+        for ev in sorted(os.listdir("/sys/class/input")):
+            if ev.startswith("event"):
+                name_file = f"/sys/class/input/{ev}/device/name"
+                if os.path.exists(name_file):
+                    try:
+                        with open(name_file, "r") as f:
+                            name = f.read().strip()
+                            if "Microsoft X-Box 360 pad" in name or "Xbox 360" in name:
+                                return f"/dev/input/{ev}"
+                    except Exception:
+                        pass
+        
+        # 2. Fallback to raw gamepad
+        for ev in sorted(os.listdir("/sys/class/input")):
+            if ev.startswith("event"):
+                name_file = f"/sys/class/input/{ev}/device/name"
+                if os.path.exists(name_file):
+                    try:
+                        with open(name_file, "r") as f:
+                            name = f.read().strip()
+                            if any(k in name.lower() for k in ["gamepad", "joystick", "shanwan", "blitz"]):
+                                return f"/dev/input/{ev}"
+                    except Exception:
+                        pass
+
+    return None
+
+EVENT_PATH = find_input_device()
+if not EVENT_PATH:
+    print("[-] Error: Controller input device not found.")
+    sys.exit(1)
 
 # struct input_event:
 # timeval: 16 bytes (tv_sec: 8 bytes, tv_usec: 8 bytes)
@@ -39,10 +75,10 @@ KEY_NAMES = {
 ABS_NAMES = {
     0x00: "ABS_X (Left Stick X)",
     0x01: "ABS_Y (Left Stick Y)",
-    0x02: "ABS_Z",
+    0x02: "ABS_Z (Left Trigger LT)",
     0x03: "ABS_RX (Right Stick X)",
     0x04: "ABS_RY (Right Stick Y)",
-    0x05: "ABS_RZ",
+    0x05: "ABS_RZ (Right Trigger RT)",
     0x10: "ABS_HAT0X (D-Pad X)",
     0x11: "ABS_HAT0Y (D-Pad Y)",
 }
@@ -74,7 +110,7 @@ while time.time() - start_time < 10:
             elif ev_type == EV_ABS:
                 name = ABS_NAMES.get(ev_code, f"ABS_0x{ev_code:02x}")
                 # print significant changes or hat
-                if ev_code in (0x10, 0x11) or abs(ev_val) > 4000:
+                if ev_code in (0x02, 0x05, 0x10, 0x11) or abs(ev_val) > 4000:
                     print(f"[AXIS] code=0x{ev_code:02x} ({name}): value={ev_val}")
     except BlockingIOError:
         time.sleep(0.01)

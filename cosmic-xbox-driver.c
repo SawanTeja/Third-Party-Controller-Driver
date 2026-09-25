@@ -55,6 +55,9 @@ static const struct supported_id SUPPORTED_DEVICES[] = {
     { 0x20bc, 0x5001, "Cosmic Byte Blitz / ShanWan Gamepad (Native Mode)", MODE_SHANWAN_LAYOUT },
     { 0x2563, 0x0575, "ShanWan USB Wireless Gamepad",                      MODE_SHANWAN_LAYOUT },
     { 0x2563, 0x0523, "ShanWan Gamepad",                                   MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0526, "Redragon / ShanWan Gamepad (2.4Ghz Wireless)",      MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0599, "Redragon / ShanWan Gamepad (USB Wired Mode)",       MODE_SHANWAN_LAYOUT },
+    { 0x05ac, 0x033e, "Cosmic Byte Blitz / Gamepad (USB Wired Mode)",      MODE_SHANWAN_LAYOUT },
     { 0x057e, 0x2009, "Cosmic Byte Blitz (Switch Pro Fallback Mode)",       MODE_SWITCH_LAYOUT },
     { 0, 0, NULL, 0 }
 };
@@ -245,6 +248,9 @@ static int find_hidraw_fd(const char *event_path) {
         if (fd >= 0) {
             printf("[cosmic-xbox-driver] Connected hidraw force-feedback interface: %s\n", hidraw_dev);
             return fd;
+        } else {
+            fprintf(stderr, "[cosmic-xbox-driver] Warning: Found hidraw device %s but could not open it: %s (check udev rules/permissions)\n",
+                    hidraw_dev, strerror(errno));
         }
     }
     return -1;
@@ -259,14 +265,14 @@ static void update_hardware_rumble(uint16_t strong, uint16_t weak, uint16_t leng
 
         /* Standard ShanWan 8-byte rumble packet */
         uint8_t pkt[8] = { 0x02, 0x08, weak_byte, strong_byte, 0xff, 0x00, 0x00, 0x00 };
-        if (write(g_state.hidraw_fd, pkt, sizeof(pkt)) < 0) {
-            /* ignore non-blocking error */
-        }
+        ssize_t ret8 = write(g_state.hidraw_fd, pkt, sizeof(pkt));
 
         /* Also write 4-byte report */
         uint8_t pkt4[5] = { 0x02, strong_byte, weak_byte, 0xff, 0x00 };
-        if (write(g_state.hidraw_fd, pkt4, sizeof(pkt4)) < 0) {
-            /* ignore */
+        ssize_t ret4 = write(g_state.hidraw_fd, pkt4, sizeof(pkt4));
+
+        if (ret8 < 0 && ret4 < 0) {
+            fprintf(stderr, "[cosmic-xbox-driver] Rumble write failed on hidraw: %s\n", strerror(errno));
         }
         return;
     }

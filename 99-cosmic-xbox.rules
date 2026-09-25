@@ -6,12 +6,20 @@ KERNEL=="uinput", SUBSYSTEM=="misc", MODE="0660", GROUP="input", TAG+="uaccess"
 
 # Universal match for ALL ShenZhen ShanWan Technology controllers (Vendor 0x20bc)
 KERNEL=="hidraw*", ATTRS{idVendor}=="20bc", MODE="0666", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{idVendor}=="20bc", MODE="0666", GROUP="input", TAG+="uaccess"
 
 # Universal match for ALL ShanWan / Sino Lite controllers (Vendor 0x2563)
 KERNEL=="hidraw*", ATTRS{idVendor}=="2563", MODE="0666", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{idVendor}=="2563", MODE="0666", GROUP="input", TAG+="uaccess"
 
 # Universal match for DragonRise Chinese clone gamepads (Vendor 0x0079)
 KERNEL=="hidraw*", ATTRS{idVendor}=="0079", MODE="0666", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{idVendor}=="0079", MODE="0666", GROUP="input", TAG+="uaccess"
+
+# Match for Cosmic Byte / ShanWan wired USB fallback mode (05ac:033e)
+KERNEL=="hidraw*", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="033e", MODE="0666", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="033e", MODE="0666", GROUP="input", TAG+="uaccess"
 
 # Permissions for Switch Pro fallback mode (if ever connected in switch mode)
 KERNEL=="hidraw*", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2009", MODE="0666", GROUP="input", TAG+="uaccess"
+SUBSYSTEM=="input", ATTRS{idVendor}=="057e", ATTRS{idProduct}=="2009", MODE="0666", GROUP="input", TAG+="uaccess"
