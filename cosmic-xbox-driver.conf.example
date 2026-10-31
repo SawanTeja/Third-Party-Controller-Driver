@@ -1,0 +1,17 @@
+# /etc/cosmic-xbox-driver.conf
+# Configuration for Cosmic Byte & ShanWan Universal Linux Xbox Driver
+#
+# Changes take effect when restarting the service:
+#   sudo systemctl restart cosmic-xbox-driver.service
+
+# Disable all vibration / force-feedback rumble.
+# Set to 'true' if you want zero vibration or if your controller produces
+# violent/unwanted rumble on trigger pulls.
+# Values: true | false (default: false)
+disable_rumble = false
+
+# Swap L2 (Left Trigger) and R2 (Right Trigger).
+# By default, ShanWan hardware triggers (ABS_GAS -> LT, ABS_BRAKE -> RT)
+# are properly oriented. Set to 'true' if your specific clone requires them swapped.
+# Values: true | false (default: false)
+swap_triggers = false

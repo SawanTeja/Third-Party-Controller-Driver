@@ -26,6 +26,31 @@ The controller i have tested in the video is Cosmic Byte Blitz on Ubuntu
 
 ---
 
+## Prerequisites
+
+Ensure your system has the standard C compiler and build tools installed:
+
+- **Ubuntu / Debian / Linux Mint / Pop!_OS**:
+  ```bash
+  sudo apt update && sudo apt install -y build-essential
+  ```
+- **Fedora / RHEL**:
+  ```bash
+  sudo dnf install -y gcc glibc-devel make
+  ```
+- **Arch Linux / Manjaro**:
+  ```bash
+  sudo pacman -S --needed base-devel
+  ```
+- **openSUSE**:
+  ```bash
+  sudo zypper install -t pattern devel_basis
+  ```
+
+*(Note: `install.sh` will also attempt to auto-install these if they are missing on supported distributions).*
+
+---
+
 ## Installation
 
 Run the automated installer:
@@ -66,8 +91,31 @@ sudo ./uninstall.sh
 
 ---
 
+## Configuration
+
+The driver works out of the box with zero configuration. If your controller requires custom adjustments (e.g. disabling vibration or swapping triggers), edit `/etc/cosmic-xbox-driver.conf`:
+
+```ini
+# /etc/cosmic-xbox-driver.conf
+
+# Turn OFF all vibration/rumble (useful if trigger pulls cause violent or unwanted vibration)
+disable_rumble = false
+
+# Swap L2 (LT) and R2 (RT) triggers if your clone has them reversed
+swap_triggers = false
+```
+
+Apply changes:
+```bash
+sudo systemctl restart cosmic-xbox-driver.service
+```
+
+---
+
 ## Supported Controllers
 
-- Cosmic Byte Blitz (Wireless Dongle & Wired)
-- ShenZhen ShanWan Technology Gamepads (`20bc:5001`, `2563:0575`, `2563:0523`)
+- **Cosmic Byte Blitz** (2.4GHz Wireless Dongle `20bc:5001` & Wired `05ac:033e`)
+- **Redragon Gamepads** (Wired `2563:0599` & Wireless 2.4GHz Dongle `2563:0526`)
+- **ShanWan / ShenZhen Technology Gamepads** (`2563:0526`, `2563:0575`, `2563:0523`, `20bc:5001`)
+- **DragonRise / Generic Clone Gamepads** (Vendor `0x0079`)
 - Generic third-party PC/Android controllers using ShanWan chipsets

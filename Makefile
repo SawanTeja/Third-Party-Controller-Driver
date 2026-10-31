@@ -1,4 +1,6 @@
-CC ?= gcc
+ifeq ($(origin CC),default)
+CC = gcc
+endif
 CFLAGS ?= -O2 -Wall -Wextra
 TARGET = cosmic-xbox-driver
 SRC = cosmic-xbox-driver.c
@@ -23,6 +25,9 @@ install: $(TARGET)
 	install -m 644 99-cosmic-xbox.rules $(DESTDIR)$(UDEVDIR)/99-cosmic-xbox.rules
 	install -d $(DESTDIR)$(SYSTEMDDIR)
 	install -m 644 cosmic-xbox-driver.service $(DESTDIR)$(SYSTEMDDIR)/cosmic-xbox-driver.service
+	@if [ ! -f /etc/cosmic-xbox-driver.conf ]; then \
+		install -m 644 cosmic-xbox-driver.conf.example /etc/cosmic-xbox-driver.conf; \
+	fi
 	udevadm control --reload-rules && udevadm trigger
 	systemctl daemon-reload
 	systemctl enable --now cosmic-xbox-driver.service

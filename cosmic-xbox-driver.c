@@ -56,7 +56,7 @@ static const struct supported_id SUPPORTED_DEVICES[] = {
     { 0x20bc, 0x5001, "Cosmic Byte Blitz / ShanWan Gamepad (Wireless Dongle)", MODE_SHANWAN_LAYOUT },
     { 0x2563, 0x0575, "ShanWan USB Wireless Gamepad",                          MODE_SHANWAN_LAYOUT },
     { 0x2563, 0x0523, "ShanWan Gamepad",                                       MODE_SHANWAN_LAYOUT },
-    { 0x2563, 0x0526, "Redragon / ShanWan Gamepad (2.4Ghz Wireless Dongle)",   MODE_SHANWAN_LAYOUT },
+    { 0x2563, 0x0526, "ShanWan / Redragon Gamepad (Wired / Wireless Dongle)",  MODE_SHANWAN_LAYOUT },
     { 0x2563, 0x0599, "Redragon / ShanWan Gamepad (USB Wired Mode)",           MODE_USB_FALLBACK_LAYOUT },
     { 0x05ac, 0x033e, "Cosmic Byte Blitz / Gamepad (USB Wired Mode)",          MODE_USB_FALLBACK_LAYOUT },
     { 0x057e, 0x2009, "Cosmic Byte Blitz (Switch Pro Fallback Mode)",           MODE_SWITCH_LAYOUT },
@@ -84,6 +84,34 @@ struct controller_state {
 static volatile bool g_running = true;
 static int g_epoll_fd = -1;
 static struct controller_state g_state = { -1, -1, {0}, {0}, 0, 0, 0, -1, false, -1, {{0}}, {0} };
+
+/* Configuration options */
+static bool g_disable_rumble = false;
+static bool g_swap_triggers = false;
+static const char *g_config_path = "/etc/cosmic-xbox-driver.conf";
+
+static void load_config_file(const char *path) {
+    FILE *fp = fopen(path, "r");
+    if (!fp) return;
+    char line[256];
+    while (fgets(line, sizeof(line), fp)) {
+        char *p = line;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '#' || *p == ';' || *p == '\n' || *p == '\0') continue;
+        char key[64] = {0}, val[64] = {0};
+        if (sscanf(p, "%63[^= \t] = %63s", key, val) == 2 ||
+            sscanf(p, "%63[^= \t]=%63s", key, val) == 2) {
+            if (strcasecmp(key, "disable_rumble") == 0 || strcasecmp(key, "no_rumble") == 0) {
+                g_disable_rumble = (strcasecmp(val, "true") == 0 || strcasecmp(val, "1") == 0 || strcasecmp(val, "yes") == 0);
+            } else if (strcasecmp(key, "swap_triggers") == 0) {
+                g_swap_triggers = (strcasecmp(val, "true") == 0 || strcasecmp(val, "1") == 0 || strcasecmp(val, "yes") == 0);
+            }
+        }
+    }
+    fclose(fp);
+    printf("[cosmic-xbox-driver] Loaded config from %s: disable_rumble=%s, swap_triggers=%s\n",
+           path, g_disable_rumble ? "true" : "false", g_swap_triggers ? "true" : "false");
+}
 
 static void handle_signal(int sig) {
     (void)sig;
@@ -184,10 +212,12 @@ static int create_uinput_xbox360(void) {
     setup_abs(fd, ABS_HAT0X, -1, 1, 0, 0);/* D-pad Hat X */
     setup_abs(fd, ABS_HAT0Y, -1, 1, 0, 0);/* D-pad Hat Y */
 
-    /* Enable Force Feedback */
-    ioctl(fd, UI_SET_EVBIT, EV_FF);
-    ioctl(fd, UI_SET_FFBIT, FF_RUMBLE);
-    ioctl(fd, UI_SET_FFBIT, FF_PERIODIC);
+    /* Enable Force Feedback only if rumble is not disabled */
+    if (!g_disable_rumble) {
+        ioctl(fd, UI_SET_EVBIT, EV_FF);
+        ioctl(fd, UI_SET_FFBIT, FF_RUMBLE);
+        ioctl(fd, UI_SET_FFBIT, FF_PERIODIC);
+    }
 
     struct uinput_setup usetup;
     memset(&usetup, 0, sizeof(usetup));
@@ -196,7 +226,7 @@ static int create_uinput_xbox360(void) {
     usetup.id.vendor  = 0x045e; /* Microsoft Corp. */
     usetup.id.product = 0x028e; /* Xbox 360 Controller */
     usetup.id.version = 0x0114;
-    usetup.ff_effects_max = MAX_EFFECTS;
+    usetup.ff_effects_max = g_disable_rumble ? 0 : MAX_EFFECTS;
 
     if (ioctl(fd, UI_DEV_SETUP, &usetup) < 0) {
         perror("UI_DEV_SETUP failed");
@@ -257,6 +287,7 @@ static int find_hidraw_fd(const char *event_path) {
 
 /* Upload or update force feedback effect to the physical controller */
 static void update_hardware_rumble(uint16_t strong, uint16_t weak, uint16_t length) {
+    if (g_disable_rumble) return;
     /* Method 1: ShanWan native mode via hidraw */
     if (g_state.hidraw_fd >= 0) {
         uint8_t strong_byte = (strong > 0) ? (strong / 256) : 0;
@@ -322,6 +353,7 @@ static void stop_hardware_rumble(void) {
 
 /* Handle uinput force feedback requests from games/Steam/Wine */
 static void handle_uinput_ff(int uinput_fd) {
+    if (g_disable_rumble) return;
     struct input_event ev;
     while (read(uinput_fd, &ev, sizeof(ev)) == sizeof(ev)) {
         if (ev.type == EV_UINPUT) {
@@ -508,7 +540,7 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
                         break;
                 }
             } else {
-                /* Native ShanWan Wireless Dongle Mode: Buttons are 1:1 */
+                /* Native ShanWan Wireless Dongle & Generic Wired Mode */
                 switch (code) {
                     case BTN_A:
                     case BTN_B:
@@ -516,12 +548,16 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
                     case BTN_Y:
                     case BTN_TL:
                     case BTN_TR:
-                    case BTN_SELECT:
-                    case BTN_START:
                     case BTN_MODE:
                     case BTN_THUMBL:
                     case BTN_THUMBR:
                         emit_event(uinput_fd, EV_KEY, code, val);
+                        break;
+                    case BTN_SELECT: /* 0x13a on hardware -> physical Start button */
+                        emit_event(uinput_fd, EV_KEY, BTN_START, val);
+                        break;
+                    case BTN_START:  /* 0x13b on hardware -> physical Select button */
+                        emit_event(uinput_fd, EV_KEY, BTN_SELECT, val);
                         break;
                     case BTN_TL2:
                     case BTN_TR2:
@@ -560,13 +596,13 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
                     case ABS_RZ:
                         emit_event(uinput_fd, EV_ABS, ABS_RY, scale_axis_255(val));
                         break;
-                    case ABS_BRAKE:
-                        /* Full analog sensitivity for Left Trigger (0..255) */
-                        emit_event(uinput_fd, EV_ABS, ABS_Z, val);
-                        break;
                     case ABS_GAS:
-                        /* Full analog sensitivity for Right Trigger (0..255) */
-                        emit_event(uinput_fd, EV_ABS, ABS_RZ, val);
+                        /* Physical Left Trigger (LT) on ShanWan hardware -> ABS_Z */
+                        emit_event(uinput_fd, EV_ABS, g_swap_triggers ? ABS_RZ : ABS_Z, val);
+                        break;
+                    case ABS_BRAKE:
+                        /* Physical Right Trigger (RT) on ShanWan hardware -> ABS_RZ */
+                        emit_event(uinput_fd, EV_ABS, g_swap_triggers ? ABS_Z : ABS_RZ, val);
                         break;
                     case ABS_HAT0X:
                     case ABS_HAT0Y:
@@ -586,13 +622,17 @@ static void process_hardware_events(int src_fd, int uinput_fd, int mode) {
                     case ABS_HAT0Y:
                         emit_event(uinput_fd, EV_ABS, code, val);
                         break;
-                    case ABS_BRAKE:
-                    case ABS_Z:
-                        emit_event(uinput_fd, EV_ABS, ABS_Z, val);
-                        break;
                     case ABS_GAS:
+                        emit_event(uinput_fd, EV_ABS, g_swap_triggers ? ABS_RZ : ABS_Z, val);
+                        break;
+                    case ABS_BRAKE:
+                        emit_event(uinput_fd, EV_ABS, g_swap_triggers ? ABS_Z : ABS_RZ, val);
+                        break;
+                    case ABS_Z:
+                        emit_event(uinput_fd, EV_ABS, g_swap_triggers ? ABS_RZ : ABS_Z, val);
+                        break;
                     case ABS_RZ:
-                        emit_event(uinput_fd, EV_ABS, ABS_RZ, val);
+                        emit_event(uinput_fd, EV_ABS, g_swap_triggers ? ABS_Z : ABS_RZ, val);
                         break;
                     default:
                         emit_event(uinput_fd, EV_ABS, code, val);
@@ -700,6 +740,9 @@ static bool try_connect_device(const char *devpath) {
     g_state.uinput_fd = ufd;
     g_state.real_ff_effect_id = -1;
 
+    /* Always silence any running vibration motors upon connection */
+    stop_hardware_rumble();
+
     /* Add src_fd and uinput_fd to epoll */
     if (g_epoll_fd >= 0) {
         struct epoll_event ev;
@@ -734,13 +777,45 @@ static void scan_existing_devices(void) {
 }
 
 int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
     setvbuf(stdout, NULL, _IOLBF, 0);
+
+    /* Try to load default configuration file */
+    load_config_file(g_config_path);
+
+    /* Parse command-line arguments */
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "--disable-rumble") == 0 || strcmp(argv[i], "--no-rumble") == 0 || strcmp(argv[i], "-n") == 0) {
+            g_disable_rumble = true;
+        } else if (strcmp(argv[i], "--swap-triggers") == 0 || strcmp(argv[i], "-s") == 0) {
+            g_swap_triggers = true;
+        } else if ((strcmp(argv[i], "--config") == 0 || strcmp(argv[i], "-c") == 0) && i + 1 < argc) {
+            g_config_path = argv[++i];
+            load_config_file(g_config_path);
+        } else if (strcmp(argv[i], "--version") == 0 || strcmp(argv[i], "-v") == 0) {
+            printf("cosmic-xbox-driver version %s\n", DRIVER_VERSION);
+            return 0;
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printf("Usage: %s [OPTIONS]\n", argv[0]);
+            printf("Universal Linux Driver & Xbox 360 Emulation Bridge\n\n");
+            printf("Options:\n");
+            printf("  -n, --disable-rumble    Completely disable controller vibration/rumble\n");
+            printf("  -s, --swap-triggers     Swap L2 (LT) and R2 (RT) triggers\n");
+            printf("  -c, --config <file>     Specify custom configuration file (default: /etc/cosmic-xbox-driver.conf)\n");
+            printf("  -v, --version           Print driver version\n");
+            printf("  -h, --help              Show this help message\n");
+            return 0;
+        } else {
+            fprintf(stderr, "Unknown argument: %s (run with -h for help)\n", argv[i]);
+            return 1;
+        }
+    }
 
     printf("=========================================================\n");
     printf("  Cosmic Byte & ShanWan Universal Xbox Controller Driver\n");
     printf("  Version: %s\n", DRIVER_VERSION);
+    printf("  Config : Rumble=%s | SwapTriggers=%s\n",
+           g_disable_rumble ? "DISABLED" : "ENABLED",
+           g_swap_triggers ? "YES" : "NO");
     printf("=========================================================\n");
 
     signal(SIGINT, handle_signal);

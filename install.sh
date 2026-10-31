@@ -14,7 +14,51 @@ echo "========================================================="
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "[1/5] Compiling driver..."
+check_and_install_dependencies() {
+    local need_deps=0
+
+    if ! command -v make >/dev/null 2>&1; then
+        need_deps=1
+    fi
+
+    if ! command -v gcc >/dev/null 2>&1 && ! command -v cc >/dev/null 2>&1; then
+        need_deps=1
+    fi
+
+    if [ "$need_deps" -eq 0 ]; then
+        local compiler
+        compiler=$(command -v gcc || command -v cc)
+        if ! printf '#include <stdio.h>\nint main(void){return 0;}\n' | "$compiler" -x c - -o /tmp/.test_compile 2>/dev/null; then
+            need_deps=1
+        fi
+        rm -f /tmp/.test_compile
+    fi
+
+    if [ "$need_deps" -ne 0 ]; then
+        echo "[*] Missing build tools or C library headers (stdio.h)."
+        echo "    Installing required build dependencies..."
+        if command -v apt-get >/dev/null 2>&1; then
+            echo "    -> Detected Debian/Ubuntu. Installing 'build-essential'..."
+            apt-get update -y && apt-get install -y build-essential
+        elif command -v dnf >/dev/null 2>&1; then
+            echo "    -> Detected Fedora/RHEL. Installing 'gcc glibc-devel make'..."
+            dnf install -y gcc glibc-devel make
+        elif command -v pacman >/dev/null 2>&1; then
+            echo "    -> Detected Arch Linux. Installing 'base-devel'..."
+            pacman -Sy --noconfirm --needed base-devel
+        elif command -v zypper >/dev/null 2>&1; then
+            echo "    -> Detected openSUSE. Installing 'devel_basis'..."
+            zypper install -y -t pattern devel_basis
+        else
+            echo "[-] Error: C compiler and standard headers (e.g. build-essential / libc-dev) are missing."
+            echo "    Please install them manually using your distribution's package manager and re-run."
+            exit 1
+        fi
+    fi
+}
+
+echo "[1/5] Checking dependencies and compiling driver..."
+check_and_install_dependencies
 make -C "$DIR" clean
 make -C "$DIR"
 
@@ -33,6 +77,10 @@ if ! grep -q "uinput" /etc/modules-load.d/uinput.conf 2>/dev/null; then
 fi
 
 echo "[5/5] Installing and starting systemd service..."
+if [ ! -f /etc/cosmic-xbox-driver.conf ]; then
+    install -m 644 "$DIR/cosmic-xbox-driver.conf.example" /etc/cosmic-xbox-driver.conf
+    echo "      Created default config at /etc/cosmic-xbox-driver.conf"
+fi
 install -m 644 "$DIR/cosmic-xbox-driver.service" /etc/systemd/system/cosmic-xbox-driver.service
 systemctl daemon-reload
 systemctl enable --now cosmic-xbox-driver.service
