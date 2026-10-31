@@ -83,7 +83,8 @@ if [ ! -f /etc/cosmic-xbox-driver.conf ]; then
 fi
 install -m 644 "$DIR/cosmic-xbox-driver.service" /etc/systemd/system/cosmic-xbox-driver.service
 systemctl daemon-reload
-systemctl enable --now cosmic-xbox-driver.service
+systemctl restart cosmic-xbox-driver.service
+systemctl enable cosmic-xbox-driver.service
 
 echo ""
 echo "========================================================="

@@ -116,6 +116,6 @@ sudo systemctl restart cosmic-xbox-driver.service
 
 - **Cosmic Byte Blitz** (2.4GHz Wireless Dongle `20bc:5001` & Wired `05ac:033e`)
 - **Redragon Gamepads** (Wired `2563:0599` & Wireless 2.4GHz Dongle `2563:0526`)
-- **ShanWan / ShenZhen Technology Gamepads** (`2563:0526`, `2563:0575`, `2563:0523`, `20bc:5001`)
+- **ShanWan / ShenZhen Technology Gamepads** (`2563:0526`, `2563:0575`, `2563:0523`, `20bc:5001`, **ShanWan BSP-D8 / BSP-D9**, etc.)
 - **DragonRise / Generic Clone Gamepads** (Vendor `0x0079`)
 - Generic third-party PC/Android controllers using ShanWan chipsets

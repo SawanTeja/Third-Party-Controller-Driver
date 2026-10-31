@@ -30,7 +30,8 @@ install: $(TARGET)
 	fi
 	udevadm control --reload-rules && udevadm trigger
 	systemctl daemon-reload
-	systemctl enable --now cosmic-xbox-driver.service
+	systemctl restart cosmic-xbox-driver.service || systemctl start cosmic-xbox-driver.service
+	systemctl enable cosmic-xbox-driver.service
 
 uninstall:
 	systemctl stop cosmic-xbox-driver.service || true

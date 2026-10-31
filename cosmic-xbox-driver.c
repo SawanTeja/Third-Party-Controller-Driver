@@ -24,6 +24,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -123,8 +124,29 @@ static int match_device(uint16_t vendor, uint16_t product, const char *name, int
     if (name) {
         if (strstr(name, "IMU") || strstr(name, "Motion") || strstr(name, "Gyro") ||
             strstr(name, "Mouse") || strstr(name, "Microsoft X-Box 360 pad") ||
-            strstr(name, "Keyboard")) {
+            strstr(name, "Keyboard") || strstr(name, "Consumer Control")) {
             return 0;
+        }
+    }
+
+    /* Verify that fd actually exposes gamepad capabilities (EV_KEY and EV_ABS with analog axes) */
+    if (fd >= 0) {
+        uint8_t ev_bits[EV_MAX / 8 + 1] = {0};
+        if (ioctl(fd, EVIOCGBIT(0, sizeof(ev_bits)), ev_bits) >= 0) {
+            bool has_key = (ev_bits[EV_KEY / 8] & (1 << (EV_KEY % 8))) != 0;
+            bool has_abs = (ev_bits[EV_ABS / 8] & (1 << (EV_ABS % 8))) != 0;
+            if (!has_key || !has_abs) {
+                return 0; /* Ignore companion non-gamepad nodes */
+            }
+
+            uint8_t abs_bits[ABS_MAX / 8 + 1] = {0};
+            if (ioctl(fd, EVIOCGBIT(EV_ABS, sizeof(abs_bits)), abs_bits) >= 0) {
+                bool has_x = (abs_bits[ABS_X / 8] & (1 << (ABS_X % 8))) != 0;
+                bool has_y = (abs_bits[ABS_Y / 8] & (1 << (ABS_Y % 8))) != 0;
+                if (!has_x || !has_y) {
+                    return 0; /* Real gamepads must have Left Stick X and Y */
+                }
+            }
         }
     }
 
@@ -668,6 +690,11 @@ static void disconnect_controller(void) {
         close(g_state.uinput_fd);
         g_state.uinput_fd = -1;
     }
+    g_state.src_path[0] = '\0';
+    g_state.src_name[0] = '\0';
+    g_state.vendor = 0;
+    g_state.product = 0;
+    g_state.mode = 0;
     g_state.real_ff_effect_id = -1;
     memset(g_state.effect_uploaded, 0, sizeof(g_state.effect_uploaded));
     printf("[cosmic-xbox-driver] Controller disconnected and resources cleaned up.\n");
@@ -760,6 +787,8 @@ static bool try_connect_device(const char *devpath) {
 
 /* Scan /dev/input for existing supported devices */
 static void scan_existing_devices(void) {
+    if (g_state.src_fd >= 0) return;
+
     DIR *dir = opendir("/dev/input");
     if (!dir) return;
 
@@ -847,7 +876,20 @@ int main(int argc, char *argv[]) {
         printf("[cosmic-xbox-driver] No matching controller found initially. Waiting for connection...\n");
     }
 
+    time_t last_scan_time = 0;
+
     while (g_running) {
+        /* Periodically rescan /dev/input if no controller is currently connected.
+         * Handles controllers connected before driver startup, wireless dongles staying in USB
+         * while the controller sleeps, or controllers waking without node re-creation. */
+        if (g_state.src_fd < 0) {
+            time_t now = time(NULL);
+            if (now - last_scan_time >= 1) {
+                last_scan_time = now;
+                scan_existing_devices();
+            }
+        }
+
         struct epoll_event events[8];
         int nfds = epoll_wait(g_epoll_fd, events, 8, 500);
 
